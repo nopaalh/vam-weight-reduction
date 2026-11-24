@@ -1,6 +1,16 @@
-# VAM Reduksi Berbobot
+# VAM Reduksi Berbobot (VRB)
 
-Program C ini mencari solusi awal untuk masalah transportasi. Masukkan biaya pengiriman, pasokan, dan permintaan, lalu program menampilkan jumlah yang dikirim melalui setiap rute serta total biayanya. Opsi `--trace` menampilkan keputusan pada setiap iterasi.
+**Kelompok 8 — Institut Teknologi Sepuluh Nopember**
+
+| Nama | NRP |
+|---|---|
+| Mochammad Irfan Sandy | 5025241127 |
+| Adrian Afzal Zaidana | 5025241151 |
+| Muhammad Naufal Hadaya Setiawan | 5025241181 |
+| Mirza Rifai Dhiaurrahman | 5025241205 |
+| Akmal Yusuf | 5025241212 |
+
+Program C ini mencari solusi awal (*Initial Basic Feasible Solution* / IBFS) untuk masalah transportasi menggunakan metode **VAM Reduksi Berbobot (VRB)**. Masukkan biaya pengiriman, pasokan, dan permintaan, lalu program menampilkan jumlah yang dikirim melalui setiap rute serta total biayanya. Opsi `--trace` menampilkan keputusan pada setiap iterasi.
 
 ## Menjalankan program
 
@@ -30,12 +40,13 @@ Dua angka pertama adalah jumlah baris dan kolom. Tiga baris berikutnya adalah bi
 
 ## Model transportasi dan IBFS
 
-Misalkan ada $m$ sumber dan $n$ tujuan. Sebuah sel $(i,j)$ mewakili rute dari sumber $i$ ke tujuan $j$.
+Misalkan ada $m$ sumber dan $n$ tujuan. Sebuah sel $(i,j)$ mewakili rute dari sumber $i$ ke tujuan $j$. Pada ilustrasi tabel transportasi dengan reduksi, setiap sel ditulis dalam format `Cij (Rij) [Xij]`.
 
 | Simbol | Arti |
 |---|---|
-| $C(i,j)$ | Biaya asli untuk mengirim satu unit pada sel $(i,j)$ |
-| $X(i,j)$ | Jumlah yang dialokasikan pada sel $(i,j)$ |
+| $C(i,j)$ atau $C_{ij}$ | Biaya asli untuk mengirim satu unit pada sel $(i,j)$ |
+| $R(i,j)$ atau $R_{ij}$ | Nilai biaya setelah reduksi baris dan kolom pada sel $(i,j)$ |
+| $X(i,j)$ atau $X_{ij}$ | Jumlah yang dialokasikan pada sel $(i,j)$ |
 | $s_i$, $d_j$ | Pasokan sumber $i$ dan permintaan tujuan $j$ pada awal masalah yang sudah seimbang |
 | $s_i^{(t)}$, $d_j^{(t)}$ | Pasokan dan permintaan yang masih tersisa sebelum iterasi $t$ |
 | $I_t$, $J_t$ | Himpunan baris dan kolom yang sisanya masih positif pada iterasi $t$ |
@@ -94,6 +105,55 @@ Tutup baris atau kolom yang sisanya nol, lalu hitung ulang penalti pada sel yang
 | Kolom 3 | 4, 5, 7 | 1 |
 
 Kolom 1 memiliki penalti terbesar, yaitu $6-3=3$. VAM memilih $(1,1)$ dan mengalokasikan $\min(90,70)=70$ unit dengan biaya $70\times3=210$. Setelah kolom 1 ditutup, biaya aktif baris 3 tinggal $[10,7]$. Penaltinya $10-7=3$, terbesar pada iterasi 2. VAM memilih $(3,3)$ dan mengalokasikan $\min(100,80)=80$ unit dengan biaya $80\times7=560$. Biaya kumulatifnya menjadi 770.
+
+## Terminologi VRB
+
+| Istilah | Definisi |
+|---|---|
+| **Biaya Reduksi** ($R_{ij}$) | Biaya hasil pengurangan cost minimum baris, lalu dilanjutkan pengurangan nilai minimum kolom. |
+| **FLC** (*First Least Cost*) | Biaya reduksi aktif terkecil pertama pada suatu baris/kolom. |
+| **SLC** (*Second Least Cost*) | Biaya reduksi aktif terkecil kedua. |
+| **TLC** (*Third Least Cost*) | Biaya reduksi aktif terkecil ketiga. |
+| **MAX** (*Maximum Cost*) | Biaya reduksi aktif terbesar. |
+| **Penalti** | $\mathrm{SLC} - \mathrm{FLC}$ |
+| **Bobot** | $\mathrm{TLC} + \mathrm{MAX} - \mathrm{FLC}$ |
+| **SKOR** | $\mathrm{Penalti} \times \mathrm{Bobot} = (\mathrm{SLC} - \mathrm{FLC}) \times (\mathrm{MAX} + \mathrm{TLC} - \mathrm{FLC})$ |
+| **FLC_ROW_COUNT** | Banyak sel aktif di sepanjang baris $i$ yang memiliki nilai sama dengan kandidat FLC di sel $(i,j)$. |
+| **FLC_COL_COUNT** | Banyak sel aktif di sepanjang kolom $j$ yang memiliki nilai sama dengan kandidat FLC di sel $(i,j)$. |
+| **MIN_FLC_COUNT** | Nilai terkecil dari `FLC_ROW_COUNT` dan `FLC_COL_COUNT`. |
+| **TOTAL_FLC_COUNT** | Jumlah `FLC_ROW_COUNT` dan `FLC_COL_COUNT`. |
+
+**Ilustrasi perhitungan `FLC_ROW_COUNT` dan `FLC_COL_COUNT`:**
+
+| | D1 | D2 | D3 | D4 |
+|---|---:|---:|---:|---:|
+| **S1** | **0** | 0 | 3 | 4 |
+| **S2** | 1 | 4 | 8 | 9 |
+| **S3** | 0 | 2 | 2 | 5 |
+
+Misalkan baris `S1` sedang ditinjau dalam aturan Tie-Breaker dengan kandidat FLC = `0` pada sel `C11`:
+- Pada baris `S1`, sel aktif yang bernilai `0` ada 2 (`{C11, C12}`), sehingga **`FLC_ROW_COUNT = 2`**.
+- Pada kolom `D1`, sel aktif yang bernilai `0` ada 2 (`{C11, C31}`), sehingga **`FLC_COL_COUNT = 2`**.
+
+## Aturan Tie-Breaker
+
+### Tie-Breaker dalam Baris / Kolom
+Setiap baris dan kolom aktif mengajukan satu sel calon dengan urutan prioritas:
+1. Ambil sel dengan biaya reduksi minimum (**FLC**).
+2. Jika beberapa sel memiliki FLC sama, pilih **ALOKASI** terbesar, yaitu $\min(\text{sisa pasokan}, \text{sisa permintaan})$.
+3. Jika masih seri, pilih **indeks sel terkecil**.
+
+### Tie-Breaker Antar Baris / Kolom
+Jika lebih dari satu garis memiliki SKOR terbesar, bandingkan secara berurutan hingga ditemukan satu pemenang:
+
+| Urutan | Kriteria | Pilih |
+|---:|---|---|
+| 1 | `SKOR` | Terbesar |
+| 2 | `FLC` calon alokasi | Terkecil |
+| 3 | `MIN_FLC_COUNT` | Terkecil |
+| 4 | `TOTAL_FLC_COUNT` | Terkecil |
+| 5 | `ALOKASI` ($\min(S_i, D_j)$) | Terbesar |
+| 6 | Indeks baris, lalu kolom sel | Terkecil |
 
 ## Langkah informal VRB
 
@@ -325,6 +385,43 @@ Z=20(5)+20(4)+10(2)+10(1)+15(1)=225.
 ```
 
 Nilai 225 adalah **total biaya transportasi**. Total unit yang dialokasikan adalah 75. Metode ini menghasilkan solusi awal layak dan tidak menjamin biaya optimum pada setiap kasus.
+
+## Contoh Kasus 3 × 4 (Sesuai Presentasi)
+
+Menggunakan matriks biaya asli dan nilai reduksi `Cij (Rij)` dari Langkah 1–3:
+
+| | D1 | D2 | D3 | D4 | Supply |
+|---|---:|---:|---:|---:|---:|
+| **S1** | 5 (1) | 8 (4) | 6 (0) | 4 (0) | 20 |
+| **S2** | 5 (3) | 4 (2) | 4 (0) | 2 (0) | 30 |
+| **S3** | 1 (0) | 1 (0) | 7 (4) | 9 (8) | 25 |
+| **Demand** | **30** | **15** | **20** | **10** | **75** |
+
+### Iterasi #1
+- **Skor garis aktif:** S1 = 0, S2 = 0, S3 = 0, D1 = 6, **D2 = 16**, D3 = 0, D4 = 0.
+- **Keputusan (Step 5 & 7):** Pilih **D2** (skor terbesar = 16). FLC berada di `C32` (nilai 0). Alokasikan $X_{32} = \min(25, 15) = 15$. Kolom **D2 terpenuhi** (*satisfied*), sisa S3 = 10.
+
+### Iterasi #2
+- **Skor garis aktif:** S1 = 0, S2 = 0, **S3 = 64**, D1 = 6, D3 = 0, D4 = 0.
+- **Keputusan (Step 5 & 7):** Pilih **S3** (skor terbesar = 64). FLC berada di `C31` (nilai 0). Alokasikan $X_{31} = \min(10, 30) = 10$. Baris **S3 habis**, sisa D1 = 20.
+
+### Iterasi #3
+- **Skor garis aktif:** S1 = 0, S2 = 0, **D1 = 10**, D3 = 0, D4 = 0.
+- **Keputusan (Step 5 & 7):** Pilih **D1** (skor terbesar = 10). FLC berada di `C11` (nilai 1). Alokasikan $X_{11} = \min(20, 20) = 20$. Baris **S1 habis** dan kolom **D1 terpenuhi**.
+
+### Iterasi #4 (Tie-Breaker)
+Tersisa baris **S2** (sisa 30) serta kolom **D3** (sisa 20) dan **D4** (sisa 10).
+- **Skor:** S2 = 0, D3 = 0, D4 = 0 (seri $\rightarrow$ masuk **Step 6**).
+- **Step 6.1 (FLC):** S2 = 0, D3 = 0, D4 = 0 (seri).
+- **Step 6.2 (`MIN_FLC_COUNT`):** Semua kandidat memiliki `FLC_ROW_COUNT = 2` (`{C23, C24}`) dan `FLC_COL_COUNT = 1` $\rightarrow$ `MIN = 1` (seri).
+- **Step 6.3 (`TOTAL_FLC_COUNT`):** Semua kandidat memiliki `2 + 1 = 3` (seri).
+- **Step 6.4 (`ALOKASI`):** S2 = $\min(30,20)=20$, D3 = $\min(30,20)=20$, D4 = $\min(30,10)=10$ $\rightarrow$ tersisa S2 dan D3 (keduanya menunjuk sel `C23`).
+- **Step 6.5 (Indeks sel terkecil):** Pemenang di sel **`C23`**.
+- **Alokasi (Step 7):** $X_{23} = \min(30, 20) = 20$. Kolom **D3 terpenuhi**, sisa S2 = 10.
+
+### Step 9 & Step 10
+- **Step 9:** Tersisa satu baris (**S2**, sisa 10) dan satu kolom (**D4**, sisa 10). Langsung alokasikan $X_{24} = 10$.
+- **Step 10:** Total biaya menggunakan **biaya asli** adalah $Z = (5 \times 20) + (1 \times 10) + (1 \times 15) + (4 \times 20) + (2 \times 10) = 225$.
 
 ## Flowchart VRB
 
